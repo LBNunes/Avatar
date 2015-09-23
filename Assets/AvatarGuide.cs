@@ -7,7 +7,7 @@ public class AvatarGuide : MonoBehaviour, UOSDriver {
 
     #region Constants
 
-    const string DRIVER_ID = "avatar.AvatarGuideDriver";
+    const string DRIVER_ID = "avatar.GuideDriver";
 
     #endregion
 
@@ -114,12 +114,12 @@ public class AvatarGuide : MonoBehaviour, UOSDriver {
     }
 
 	void Start (){ 
-        new Member("leftArm", transform.Find("Skeleton/Hips/Spine/Spine1/Spine2/Neck/LeftShoulder/LeftArm"), Vector3.right, Vector3.down, Vector3.forward);
-        new Member("leftForearm", transform.Find("Skeleton/Hips/Spine/Spine1/Spine2/Neck/LeftShoulder/LeftArm/LeftForeArm"), Vector3.right, Vector3.zero, Vector3.forward);
-        new Member("leftHand", transform.Find("Skeleton/Hips/Spine/Spine1/Spine2/Neck/LeftShoulder/LeftArm/LeftForeArm/LeftHand"), Vector3.forward, Vector3.left, Vector3.zero);
-        new Member("rightArm", transform.Find("Skeleton/Hips/Spine/Spine1/Spine2/Neck/RightShoulder/RightArm"), Vector3.left, Vector3.up, Vector3.forward);
-        new Member("rightForearm", transform.Find("Skeleton/Hips/Spine/Spine1/Spine2/Neck/RightShoulder/RightArm/RightForeArm"), Vector3.left, Vector3.zero, Vector3.forward);
-        new Member("rightHand", transform.Find("Skeleton/Hips/Spine/Spine1/Spine2/Neck/RightShoulder/RightArm/RightForeArm/RightHand"), Vector3.back, Vector3.right, Vector3.zero); 
+        memberTable.Add("leftArm",      new Member("leftArm", transform.Find("Skeleton/Hips/Spine/Spine1/Spine2/Neck/LeftShoulder/LeftArm"), Vector3.right, Vector3.down, Vector3.forward));
+        memberTable.Add("leftForearm",  new Member("leftForearm", transform.Find("Skeleton/Hips/Spine/Spine1/Spine2/Neck/LeftShoulder/LeftArm/LeftForeArm"), Vector3.right, Vector3.zero, Vector3.forward));
+        memberTable.Add("leftHand",     new Member("leftHand", transform.Find("Skeleton/Hips/Spine/Spine1/Spine2/Neck/LeftShoulder/LeftArm/LeftForeArm/LeftHand"), Vector3.forward, Vector3.left, Vector3.zero));
+        memberTable.Add("rightArm",     new Member("rightArm", transform.Find("Skeleton/Hips/Spine/Spine1/Spine2/Neck/RightShoulder/RightArm"), Vector3.left, Vector3.up, Vector3.forward));
+        memberTable.Add("rightForearm", new Member("rightForearm", transform.Find("Skeleton/Hips/Spine/Spine1/Spine2/Neck/RightShoulder/RightArm/RightForeArm"), Vector3.left, Vector3.zero, Vector3.forward));
+        memberTable.Add("rightHand",    new Member("rightHand", transform.Find("Skeleton/Hips/Spine/Spine1/Spine2/Neck/RightShoulder/RightArm/RightForeArm/RightHand"), Vector3.back, Vector3.right, Vector3.zero)); 
 
         MockMovement();
 	}
@@ -170,6 +170,10 @@ public class AvatarGuide : MonoBehaviour, UOSDriver {
         state = State.PAUSED;
     }
     public void Resume(Call call, Response response, CallContext context) {
+        if (avatarAnimation == null) {
+            Debug.LogError("Attempting to resume a null animation!");
+            return;
+        }
         if (timer > 0)
             state = State.WAITING;
         else
@@ -184,123 +188,6 @@ public class AvatarGuide : MonoBehaviour, UOSDriver {
 
     #region Auxiliary Classes
     private enum State { IDLE, PAUSED, ANIMATING, WAITING }
-
-    private class Member {
-
-        const float MARGIN = 1.0f;
-        Transform transform;
-        Quaternion defaultRotation;
-        Quaternion initialRotation;
-        Quaternion goalRotation;
-        Vector3 axisA;
-        Vector3 axisB;
-        Vector3 axisC;
-        float time;
-        float elapsed;
-        string key;
-        bool done;
-
-        public Member(string k, Transform t, Vector3 axisA, Vector3 axisB, Vector3 axisC) {
-            key = k;
-            transform = t;
-            this.axisA = axisA;
-            this.axisB = axisB;
-            this.axisC = axisC;
-
-            if (transform == null) {
-                Debug.Log("WARNING: " + key + " member is null");
-            }
-
-            elapsed = 0;
-            time = 5;
-            defaultRotation = transform.localRotation;
-            initialRotation = defaultRotation;
-            goalRotation = defaultRotation;
-            AvatarGuide.memberTable.Add(k, this);
-
-            Debug.Log("Create member " + key + " with rotation " + defaultRotation.ToString());
-        }
-
-        public void Update() {
-            if (done) return;
-            elapsed += Time.deltaTime;
-            transform.localRotation = Quaternion.Lerp(initialRotation, goalRotation, elapsed / time);
-            if (Mathf.Abs(Quaternion.Angle(transform.localRotation, goalRotation)) < MARGIN) {
-                //Debug.Log("Member " + key + " finished rotation.");
-                done = true;
-            }
-        }
-
-        public void Reset() {
-            transform.localRotation = defaultRotation;
-            initialRotation = defaultRotation;
-            //Debug.Log("Reset member " + key + " from " + transform.rotation.ToString() + " to default rotation.");
-        }
-
-        public void SavePosition() {
-            initialRotation = transform.localRotation;
-        }
-
-        public void ResetStage() {
-            transform.localRotation = initialRotation;
-            //Debug.Log("Reset member " + key + " from " + transform.rotation.ToString() + " to animation stage start.");
-        }
-
-        public void SetRotation(float[] rotation) {
-            Reset();
-            if (axisA != Vector3.zero) {
-                transform.localRotation = transform.localRotation * Quaternion.AngleAxis(rotation[0], axisA);
-            }
-            else if (rotation[0] != 0.0f) {
-                Debug.LogWarning("Attempting to rotate member " + key + " around impossible axis!");
-            }
-            if (axisB != Vector3.zero) {
-                transform.localRotation = transform.localRotation * Quaternion.AngleAxis(rotation[1], axisB);
-            }
-            else if (rotation[1] != 0.0f) {
-                Debug.LogWarning("Attempting to rotate member " + key + " around impossible axis!");
-            }
-            if (axisC != Vector3.zero) {
-                transform.localRotation = transform.localRotation * Quaternion.AngleAxis(rotation[2], axisC);
-            }
-            else if (rotation[2] != 0.0f) {
-                Debug.LogWarning("Attempting to rotate member " + key + " around impossible axis!");
-            }
-            SavePosition();
-            goalRotation = transform.localRotation; // Prevent invalid goals
-            //Debug.Log("Force rotation of member " + key + " by " + rotation.ToString());
-        }
-
-        public bool IsDone() { return done; }
-
-        public void SetNewGoal(float[] rotation) {
-            done = false;
-            elapsed = 0;
-            time = rotation[3];
-            
-            goalRotation = transform.localRotation;
-            if (axisA != Vector3.zero) {
-                goalRotation = goalRotation * Quaternion.AngleAxis(rotation[0], axisA);
-            }
-            else if (rotation[0] != 0.0f) {
-                Debug.LogWarning("Attempting to rotate member " + key + " around impossible axis!");
-            }
-            if (axisB != Vector3.zero) {
-                goalRotation = goalRotation * Quaternion.AngleAxis(rotation[1], axisB);
-            }
-            else if (rotation[1] != 0.0f) {
-                Debug.LogWarning("Attempting to rotate member " + key + " around impossible axis!");
-            }
-            if (axisC != Vector3.zero) {
-                goalRotation = goalRotation * Quaternion.AngleAxis(rotation[2], axisC);
-            }
-            else if (rotation[2] != 0.0f) {
-                Debug.LogWarning("Attempting to rotate member " + key + " around impossible axis!");
-            }
-            SavePosition();
-            //Debug.Log("Member " + key + " will rotate towards " + goal.ToString());
-        }
-    }
 
     private class AvatarAnimation {
         float waitTime;

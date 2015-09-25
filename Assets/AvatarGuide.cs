@@ -1,22 +1,20 @@
 ﻿using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using UOS;
 using WyrmTale;
 
-public class AvatarGuide : MonoBehaviour, UOSDriver {
+using GuideCall = System.Collections.Generic.KeyValuePair<AvatarGuide.State, AvatarAnimation>;
 
-    #region Constants
+public class AvatarGuide : MonoBehaviour {
 
-    const string DRIVER_ID = "avatar.GuideDriver";
-
-    #endregion
+    public enum State { IDLE, PAUSED, ANIMATING, WAITING }
 
     #region Members
 
     static Dictionary<string, Member> memberTable = new Dictionary<string,Member>();
 
-    UpDriver driver;
-
+    GuideDriver driver;
     AvatarAnimation avatarAnimation = null;
     State state = State.IDLE;
     float waitTime = 2.5f;
@@ -74,6 +72,41 @@ public class AvatarGuide : MonoBehaviour, UOSDriver {
         }
     }
 
+    private void ProcessCall(GuideCall call) {
+        switch (call.Key) {
+            case State.ANIMATING:
+                if (call.Value != null) {
+                    avatarAnimation = call.Value;
+                    SetCamera(avatarAnimation.GetCameraPosition());
+                    RestartAnimation();
+                    state = State.ANIMATING;
+                }
+                else if (avatarAnimation == null) {
+                    Debug.LogError("Attempting to resume a null animation!");
+                }
+                else if (timer > 0) {
+                    state = State.WAITING;
+                }
+                else {
+                    state = State.ANIMATING;
+                }
+                break;
+            case State.PAUSED:
+                state = State.PAUSED;
+                break;
+            case State.IDLE:
+                state = State.IDLE;
+                foreach (KeyValuePair<string, Member> entry in memberTable) {
+                    entry.Value.Reset();
+                }
+                avatarAnimation = null;
+                break;
+            default:
+                Debug.Log("Unexpected call type fetched from GuideDriver.");
+                break;
+        }
+    }
+
     private void MockMovement() {
         var list = new List<Dictionary<string, float[]>>();
         var initial = new Dictionary<string, float[]>();
@@ -113,7 +146,10 @@ public class AvatarGuide : MonoBehaviour, UOSDriver {
     void Awake() {
     }
 
-	void Start (){ 
+	void Start (){
+
+        driver = new GuideDriver();
+
         memberTable.Add("leftArm",      new Member("leftArm", transform.Find("Skeleton/Hips/Spine/Spine1/Spine2/Neck/LeftShoulder/LeftArm"), Vector3.right, Vector3.down, Vector3.forward));
         memberTable.Add("leftForearm",  new Member("leftForearm", transform.Find("Skeleton/Hips/Spine/Spine1/Spine2/Neck/LeftShoulder/LeftArm/LeftForeArm"), Vector3.right, Vector3.zero, Vector3.forward));
         memberTable.Add("leftHand",     new Member("leftHand", transform.Find("Skeleton/Hips/Spine/Spine1/Spine2/Neck/LeftShoulder/LeftArm/LeftForeArm/LeftHand"), Vector3.forward, Vector3.left, Vector3.zero));
@@ -125,6 +161,11 @@ public class AvatarGuide : MonoBehaviour, UOSDriver {
 	}
 
     void Update() {
+
+        if (driver.HasCall()) {
+            ProcessCall(driver.Dequeue());
+        }
+
         if (state == State.ANIMATING) {
             bool animationOver = true;
             foreach (KeyValuePair<string, Member> member in memberTable) {
@@ -155,111 +196,4 @@ public class AvatarGuide : MonoBehaviour, UOSDriver {
         }
     }
     #endregion
-
-    #region Services
-    public void Animate(Call call, Response response, CallContext context) {
-        JSON js = new JSON();
-        js.serialized = call.GetParameterString("animation");
-        avatarAnimation = (AvatarAnimation)js.ToJSON("avatarAnimation");
-        
-        SetCamera(avatarAnimation.GetCameraPosition());
-        RestartAnimation();
-        state = State.ANIMATING;
-    }
-    public void Pause(Call call, Response response, CallContext context) {
-        state = State.PAUSED;
-    }
-    public void Resume(Call call, Response response, CallContext context) {
-        if (avatarAnimation == null) {
-            Debug.LogError("Attempting to resume a null animation!");
-            return;
-        }
-        if (timer > 0)
-            state = State.WAITING;
-        else
-            state = State.ANIMATING;
-    }
-    public void Reset(Call call, Response response, CallContext context) {
-        foreach (KeyValuePair<string, Member> entry in memberTable) {
-            entry.Value.Reset();
-        }
-    }
-    #endregion
-
-    #region Auxiliary Classes
-    private enum State { IDLE, PAUSED, ANIMATING, WAITING }
-
-    private class AvatarAnimation {
-        float waitTime;
-        string cameraPosition;
-        List<Dictionary<string, float[]>> animationStages;
-
-        public AvatarAnimation(List<Dictionary<string, float[]>> animationStages, float waitTime, string cameraPosition) {
-            this.animationStages = animationStages;
-            this.waitTime = waitTime;
-            this.cameraPosition = cameraPosition;
-        }
-
-        public float GetWaitTime() { return waitTime; }
-        public void SetWaitTime(float value) { waitTime = value; }
-        public string GetCameraPosition() { return cameraPosition; }
-        public void SetCameraPosition(string value) { cameraPosition = value; }
-        public List<Dictionary<string, float[]>> GetAnimationStages() { return animationStages; } /* For debugging purposes only! */
-        public Dictionary<string, float[]> GetAnimationStage(int stage) {
-            if (stage >= animationStages.Count) 
-                return null;
-
-            return animationStages[stage]; 
-        }
-
-        public static implicit operator JSON(AvatarAnimation a) {
-            JSON js = new JSON();
-            js["waitTime"] = a.waitTime;
-            js["cameraPosition"] = a.cameraPosition;
-            js["animationStages"] = a.animationStages.ToArray();
-            return js;
-        }
-
-        public static explicit operator AvatarAnimation(JSON js) {
-            checked {
-                return new AvatarAnimation(
-                    (List<Dictionary<string, float[]>>)js["animationStages"],
-                    (float)js["waitTime"],
-                    (string)js["cameraPosition"]
-                );
-            }
-        }
-
-        public static AvatarAnimation[] Array(JSON[] array) {
-            List<AvatarAnimation> tc = new List<AvatarAnimation>();
-            for (int i = 0; i < array.Length; i++)
-                tc.Add((AvatarAnimation)array[i]);
-            return tc.ToArray();
-        }
-    }
-
-    #endregion
-
-    #region UOS Methods
-    public UpDriver GetDriver() {
-        return driver;
-    }
-
-    public List<UpDriver> GetParent() {
-        return null;
-    }
-
-    public void Init(IGateway gateway, uOSSettings settings, string instanceId) {
-        Debug.Log("Initializing Avatar Guide Driver...");
-        driver = new UpDriver(DRIVER_ID);
-        driver.AddService("Animate").AddParameter("animation", UpService.ParameterType.MANDATORY);
-        driver.AddService("Pause");
-        driver.AddService("Resume");
-        driver.AddService("Reset");
-    }
-
-    public void Destroy() {
-    }
-    #endregion
-
 }

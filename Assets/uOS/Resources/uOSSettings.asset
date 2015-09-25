@@ -29,4 +29,6 @@ MonoBehaviour:
     port: 8080
     timeout: 1000
   radarType: 0
-  drivers: []
+  drivers:
+  - GuideDriver
+  - FeedbackDriver

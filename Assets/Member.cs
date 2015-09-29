@@ -61,8 +61,9 @@ public class Member {
         //Debug.Log("Reset member " + key + " from " + transform.rotation.ToString() + " to animation stage start.");
     }
 
-    public void SetRotation(float[] rotation) {
+    public void SetRotationEuler(float[] rotation) {
         Reset();
+
         if (axisA != Vector3.zero) {
             transform.localRotation = transform.localRotation * Quaternion.AngleAxis(rotation[0], axisA);
         }
@@ -81,6 +82,17 @@ public class Member {
         else if (rotation[2] != 0.0f) {
             Debug.LogWarning("Attempting to rotate member " + key + " around impossible axis!");
         }
+        
+        SavePosition();
+        goalRotation = transform.localRotation; // Prevent invalid goals
+        //Debug.Log("Force rotation of member " + key + " by " + rotation.ToString());
+    }
+
+    public void SetRotationQuaternion(float[] rotation) {
+        Reset();
+
+        transform.localRotation = transform.localRotation * new Quaternion(rotation[0], rotation[1], rotation[2], rotation[3]);
+
         SavePosition();
         goalRotation = transform.localRotation; // Prevent invalid goals
         //Debug.Log("Force rotation of member " + key + " by " + rotation.ToString());
@@ -88,12 +100,12 @@ public class Member {
 
     public bool IsDone() { return done; }
 
-    public void SetNewGoal(float[] rotation) {
+    public void SetNewGoalEuler(float[] rotation) {
         done = false;
         elapsed = 0;
-        time = rotation[3];
-
         goalRotation = transform.localRotation;
+
+        time = rotation[3];
         if (axisA != Vector3.zero) {
             goalRotation = goalRotation * Quaternion.AngleAxis(rotation[0], axisA);
         }
@@ -112,6 +124,19 @@ public class Member {
         else if (rotation[2] != 0.0f) {
             Debug.LogWarning("Attempting to rotate member " + key + " around impossible axis!");
         }
+        SavePosition();
+        //Debug.Log("Member " + key + " will rotate towards " + goal.ToString());
+
+    }
+
+    public void SetNewGoalQuaternion(float[] rotation) {
+        done = false;
+        elapsed = 0;
+        goalRotation = transform.localRotation;
+
+        time = rotation[4];
+        goalRotation = goalRotation * new Quaternion(rotation[0], rotation[1], rotation[2], rotation[3]);
+
         SavePosition();
         //Debug.Log("Member " + key + " will rotate towards " + goal.ToString());
     }

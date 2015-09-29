@@ -12,6 +12,8 @@ public class FeedbackDriver : UOSDriver {
 
     public Dictionary<string, float[]> memberRotations = new Dictionary<string,float[]>();
 
+    public bool eulerAngles;
+
     public Object rotationLock = new Object();
 
     #endregion
@@ -20,19 +22,31 @@ public class FeedbackDriver : UOSDriver {
 
     public FeedbackDriver() {
         driver = new UpDriver(DRIVER_ID);
-        driver.AddService("Rotate").AddParameter("member", UpService.ParameterType.MANDATORY)
-                                   .AddParameter("rotation", UpService.ParameterType.MANDATORY);
+        driver.AddService("RotateEuler").AddParameter("member", UpService.ParameterType.MANDATORY)
+                                        .AddParameter("rotation", UpService.ParameterType.MANDATORY);
+        driver.AddService("RotateQuaternion").AddParameter("member", UpService.ParameterType.MANDATORY)
+                                             .AddParameter("rotation", UpService.ParameterType.MANDATORY);
     }
 
     #endregion
 
     #region Services
-    public void Rotate(Call call, Response response, CallContext context) {
+    public void RotateEuler(Call call, Response response, CallContext context) {
         string paramMember = call.GetParameterString("member");
         float[] paramRotation = (float[])call.GetParameter("rotation");
 
         lock (rotationLock) {
             memberRotations.Add(paramMember, paramRotation);
+            eulerAngles = true;
+        }
+    }
+    public void RotateQuaternion(Call call, Response response, CallContext context) {
+        string paramMember = call.GetParameterString("member");
+        float[] paramRotation = (float[])call.GetParameter("rotation");
+
+        lock (rotationLock) {
+            memberRotations.Add(paramMember, paramRotation);
+            eulerAngles = false;
         }
     }
     #endregion

@@ -29,7 +29,9 @@ public class AvatarFeedback : MonoBehaviour {
         if (driver.memberRotations.Count > 0) {
             lock (driver.rotationLock) {
                 foreach (var entry in driver.memberRotations) {
-                    memberTable[entry.Key].SetRotation(entry.Value);
+                    if (driver.eulerAngles) {
+                        memberTable[entry.Key].SetRotationEuler(entry.Value);
+                    }
                 }
             }
         }

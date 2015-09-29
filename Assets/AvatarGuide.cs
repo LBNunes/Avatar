@@ -17,7 +17,6 @@ public class AvatarGuide : MonoBehaviour {
     GuideDriver driver;
     AvatarAnimation avatarAnimation = null;
     State state = State.IDLE;
-    float waitTime = 2.5f;
     float timer = 0.0f;
     int animationStage = 0;
 
@@ -63,12 +62,23 @@ public class AvatarGuide : MonoBehaviour {
 
         foreach (var entry in initial) {
             float[] rotation = entry.Value;
-            memberTable[entry.Key].SetRotation(rotation);
+            if (avatarAnimation.IsEulerAngles()) {
+                memberTable[entry.Key].SetRotationEuler(rotation);
+            }
+            else {
+                memberTable[entry.Key].SetRotationQuaternion(rotation);
+            }
         }
         
+
         foreach (var entry in final) {
             float[] rotation = entry.Value;
-            memberTable[entry.Key].SetNewGoal(rotation);
+            if (avatarAnimation.IsEulerAngles()) {
+                memberTable[entry.Key].SetNewGoalEuler(rotation);
+            }
+            else {
+                memberTable[entry.Key].SetNewGoalQuaternion(rotation);
+            }
         }
     }
 
@@ -113,21 +123,21 @@ public class AvatarGuide : MonoBehaviour {
         var final = new Dictionary<string, float[]>();
         var final2 = new Dictionary<string, float[]>();
         var final3 = new Dictionary<string, float[]>();
-        initial.Add("leftArm",      new float[] { 0, 80, -105, 2 });
-        initial.Add("leftForearm",  new float[] { 75, 0, 0, 2 });
-        final.Add("leftHand",       new float[] { 0, 20, 0, 1 });
-        final2.Add("leftHand",      new float[] { 0, -40, 0, 2 });
-        final3.Add("leftHand",      new float[] { 0, 20, 0, 1 });
-        initial.Add("rightArm",     new float[] { 0, 80, -105, 2 });
-        initial.Add("rightForearm", new float[] { 75, 0, 0, 2 });
-        final.Add("rightHand",      new float[] { 0, 20, 0, 1 });
-        final2.Add("rightHand",     new float[] { 0, -40, 0, 2 });
-        final3.Add("rightHand",     new float[] { 0, 20, 0, 1 });
+        initial.Add("leftArm",      new float[] { 0, 80, -105, 1 });
+        initial.Add("leftForearm",  new float[] { 75, 0, 0, 1 });
+        final.Add("leftHand",       new float[] { 0, 20, 0, 0.5f });
+        final2.Add("leftHand",      new float[] { 0, -40, 0, 1 });
+        final3.Add("leftHand",      new float[] { 0, 20, 0, 0.5f });
+        initial.Add("rightArm",     new float[] { 0, 80, -105, 1 });
+        initial.Add("rightForearm", new float[] { 75, 0, 0, 1 });
+        final.Add("rightHand",      new float[] { 0, 20, 0, 0.5f });
+        final2.Add("rightHand",     new float[] { 0, -40, 0, 1 });
+        final3.Add("rightHand",     new float[] { 0, 20, 0, 0.5f });
         list.Add(initial);
         list.Add(final);
         list.Add(final2);
         list.Add(final3);
-        avatarAnimation = new AvatarAnimation(list, 3.0f, "leftArmSide");
+        avatarAnimation = new AvatarAnimation(list, 0.1f, "leftArmSide", true);
 
         SetCamera("chest");
 
@@ -176,13 +186,19 @@ public class AvatarGuide : MonoBehaviour {
                 ++animationStage;
                 var stage = avatarAnimation.GetAnimationStage(animationStage);
                 if (stage == null) {
-                    timer = waitTime;
+                    Debug.Log("Set timer to " + avatarAnimation.GetWaitTime());
+                    timer = avatarAnimation.GetWaitTime();
                     state = State.WAITING;
                 }
                 else {
                     foreach (var entry in stage) {
                         float[] rotation = entry.Value;
-                        memberTable[entry.Key].SetNewGoal(rotation);
+                        if (avatarAnimation.IsEulerAngles()) {
+                            memberTable[entry.Key].SetNewGoalEuler(rotation);
+                        }
+                        else {
+                            memberTable[entry.Key].SetNewGoalQuaternion(rotation);
+                        }
                     }
                 }
             }
